@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>하루 작업일지</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--primary);
+            text-align: center;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        input[type="date"], input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #1d4ed8;
+        }
+
+        .search-box {
+            margin-bottom: 15px;
+        }
+
+        .log-item {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .log-date {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .log-title {
+            font-weight: bold;
+            font-size: 1.05rem;
+            margin-bottom: 5px;
+        }
+
+        .log-content {
+            font-size: 0.95rem;
+            white-space: pre-wrap;
+            color: #334155;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            color: #ef4444;
+            border: none;
+            width: auto;
+            padding: 0;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .backup-section {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .backup-section button {
+            background-color: #64748b;
+            font-size: 0.85rem;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📋 하루 작업일지</h1>
+
+    <!-- 작성 폼 -->
+    <div class="card">
+        <div class="form-group">
+            <label for="workDate">날짜</label>
+            <input type="date" id="workDate">
+        </div>
+        <div class="form-group">
+            <label for="workTitle">작업 제목</label>
+            <input type="text" id="workTitle" placeholder="예: A 고객사 시스템 점검">
+        </div>
+        <div class="form-group">
+            <label for="workContent">작업 상세 내용</label>
+            <textarea id="workContent" placeholder="오늘 진행한 상세 내용을 적어주세요."></textarea>
+        </div>
+        <button onclick="saveLog()">일지 저장하기</button>
+    </div>
+
+    <!-- 검색 창 -->
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 날짜나 키워드로 검색..." onkeyup="filterLogs()">
+    </div>
+
+    <!-- 일지 목록 -->
+    <div id="logList"></div>
+
+    <!-- 데이터 백업/복원 -->
+    <div class="backup-section">
+        <button onclick="exportData()">데이터 백업(다운로드)</button>
+        <button onclick="importData()">데이터 복원</button>
+        <input type="file" id="importFile" style="display:none;" onchange="loadBackupFile(event)">
+    </div>
+</div>
+
+<script>
+    // 오늘 날짜 기본 세팅
+    document.getElementById('workDate').value = new Date().toISOString().substring(0, 10);
+
+    // 로드 시 기존 일지 불러오기
+    document.addEventListener('DOMContentLoaded', displayLogs);
+
+    function getLogs() {
+        return JSON.parse(localStorage.getItem('workLogs')) || [];
+    }
+
+    function saveLog() {
+        const date = document.getElementById('workDate').value;
+        const title = document.getElementById('workTitle').value;
+        const content = document.getElementById('workContent').value;
+
+        if (!date || !title) {
+            alert('날짜와 작업 제목을 입력해 주세요.');
+            return;
+        }
+
+        const logs = getLogs();
+        const newLog = { id: Date.now(), date, title, content };
+        logs.unshift(newLog); // 최신글이 위로 오도록
+
+        localStorage.setItem('workLogs', JSON.stringify(logs));
+
+        // 입력창 초기화
+        document.getElementById('workTitle').value = '';
+        document.getElementById('workContent').value = '';
+
+        displayLogs();
+    }
+
+    function deleteLog(id) {
+        if (confirm('이 일지를 삭제하시겠습니까?')) {
+            let logs = getLogs();
+            logs = logs.filter(log => log.id !== id);
+            localStorage.setItem('workLogs', JSON.stringify(logs));
+            displayLogs();
+        }
+    }
+
+    function displayLogs() {
+        const logs = getLogs();
+        renderLogs(logs);
+    }
+
+    function renderLogs(logs) {
+        const listContainer = document.getElementById('logList');
+        listContainer.innerHTML = '';
+
+        if (logs.length === 0) {
+            listContainer.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px;">기록된 작업일지가 없습니다.</div>';
+            return;
+        }
+
+        logs.forEach(log => {
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            item.innerHTML = `
+                <div class="log-date">${log.date}</div>
+                <div class="log-title">${escapeHtml(log.title)}</div>
+                <div class="log-content">${escapeHtml(log.content)}</div>
+                <button class="delete-btn" onclick="deleteLog(${log.id})">삭제</button>
+            `;
+            listContainer.appendChild(item);
+        });
+    }
+
+    function filterLogs() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const logs = getLogs();
+        const filtered = logs.filter(log => 
+            log.date.includes(query) || 
+            log.title.toLowerCase().includes(query) || 
+            log.content.toLowerCase().includes(query)
+        );
+        renderLogs(filtered);
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // 백업 다운로드
+    function exportData() {
+        const data = localStorage.getItem('workLogs') || '[]';
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `work_logs_backup_${new Date().toISOString().substring(0,10)}.json`;
+        a.click();
+    }
+
+    // 백업 파일 선택
+    function importData() {
+        document.getElementById('importFile').click();
+    }
+
+    // 백업 파일 불러오기
+    function loadBackupFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedLogs = JSON.parse(e.target.result);
+                if (Array.isArray(importedLogs)) {
+                    localStorage.setItem('workLogs', JSON.stringify(importedLogs));
+                    displayLogs();
+                    alert('데이터 복원이 완료되었습니다!');
+                } else {
+                    alert('올바르지 않은 백업 파일 형식입니다.');
+                }
+            } catch (err) {
+                alert('파일을 읽는 중 오류가 발생했습니다.');
+            }
+        };
+        reader.readAsText(file);
+    }
+</script>
+
+</body>
+</html>
